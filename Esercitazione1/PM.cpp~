@@ -1,0 +1,10 @@
+#include"Vettore.h"
+#include"PM.h"
+#include <iostream>
+#include <cmath>
+
+Vettore PM::CampoG(Vettore a) {
+	Vettore res;
+
+	return res
+}

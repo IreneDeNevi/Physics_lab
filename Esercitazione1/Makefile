@@ -1,0 +1,18 @@
+CC         = g++ 
+CFLAGS     = --std=c++11 -g -Wall
+CFLAGSROOT = `root-config --cflags`
+LIBSROOT   = `root-config --glibs`
+
+all: MainPM
+
+Vettore.o: Vettore.cpp
+	$(CC) $(CFLAGS) -c Vettore.cpp      $(CFLAGSROOT)
+
+PuntoMateriale.o: PuntoMateriale.cpp
+	$(CC) $(CFLAGS) -c PuntoMateriale.cpp      $(CFLAGSROOT)
+
+MainPM: MainPM.cpp Vettore.o PuntoMateriale.o
+	$(CC) $(CFLAGS) -o MainPM MainPM.cpp Vettore.o PuntoMateriale.o $(CFLAGSROOT) $(LIBSROOT)
+
+clean:
+	rm *.o
