@@ -1,0 +1,88 @@
+#include <cmath>
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <TF1.h>
+#include <TCanvas.h>
+#include <TGraphErrors.h>
+#include <TMinuit.h>
+#include <TApplication.h>
+#include <Math/Functor.h>
+#include <Math/Factory.h>
+
+using namespace std;
+
+namespace data{
+  vector<double> V0,eV0,L;
+}
+
+void V(const char *name) {
+  int i;
+  TF1 f("f","[0]*(x-[1])",2,2.5);
+  double x,y,ex,ey;
+  TGraphErrors gr;
+  ifstream file(name);
+  i = 0;
+  while (file >>x >>y >>ex >>ey){
+    if(y>0.001){
+      y = log(y);
+      gr.SetPoint(i,x,y);
+      gr.SetPointError(i,ex,ey);
+      i++;
+	}
+  }
+  f.SetParameter(0,10);
+  f.SetParameter(1,2.5);
+ gr.Fit("f");
+ data::V0.push_back(f.GetParameter(1));
+ data::eV0.push_back(f.GetParError(1));
+}
+
+int main(){
+  double c = 299792458;
+  data::L.push_back(468e-9);
+  data::L.push_back(524e-9);
+  data::L.push_back(586e-9);
+  data::L.push_back(623e-9);
+  
+  int i;
+  int j;
+  TApplication app("app",0,NULL);
+  TF1 g ("g","[0]+[1]*x");
+  
+  V("blu_IV.dat");
+  V("verde_IV.dat");
+  V("arancione_IV.dat");
+  V("rosso_IV.dat");
+  
+  vector<double> eni,ni;
+  double etot = 0;
+  TGraphErrors s;
+  for(int i = 0; i<data::V0.size();i++){
+    double nit = c/(data::L[i]);
+    ni.push_back(nit);
+    double enit = (c/(data::L[i]*data::L[i]))*(20e-9/sqrt(3));
+    eni.push_back(enit);
+    s.SetPointError(i,enit,data::eV0[i]);
+  }
+  for(int j=0; j<data::V0.size();j++){
+    
+	 for(int i =0;i<data::V0.size();i++){
+	   s.SetPoint(i,ni[i],data::V0[i]);
+	   if(i=j){
+	     s.SetPointError(i,eni[i],data::eV0[i]);
+	   }
+	   else{
+	     s.SetPointError(i,0,data::eV0[i]);
+	       }
+	 }
+  }
+  g.SetParameter(0,2);
+  g.SetParameter(1,1e-14);
+  s.Fit("g");
+  cout<<"e/h = "<<g.GetParameter(1)<<" +- " <<g.GetParError(1) <<endl;
+  etot = etot+g.GetParError(1)*g.GetParError(1);
+  etot= sqrt(etot);
+  cout<<"etot = " <<etot <<endl;
+  return 0;
+}

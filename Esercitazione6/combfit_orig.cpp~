@@ -1,0 +1,105 @@
+#include <iostream>
+#include <fstream>
+#include "TH1D.h"
+#include "TF1.h"
+#include "TMath.h"
+#include "TGraph.h"
+#include "TMinuit.h"
+#include "TCanvas.h"
+#include "TApplication.h"
+#include "Minuit2/Minuit2Minimizer.h"
+#include "Math/Functor.h"
+#include "Math/Factory.h"
+#include <cmath>
+
+using namespace std;
+
+double e = 1.61951;
+double err_e = 0.0231065;
+
+double e_k = 1.1547;
+double err_ek =0.0105;
+
+double h_e = 6.273;
+double err_he = 1.1737;
+double h_k = 4.3;
+double err_hk = 0.2;
+
+  // fit comune 
+
+
+double chi2(const double *par){ //definisco la funzione chi quadro
+  double val=0;
+  val += pow ((e_k-par[0]/par[2])/err_ek,2);
+  val += pow ((h_e-par[1]/par[0])/err_he,2);
+  val += pow ((h_k-par[1]/par[2])/err_hk,2);
+  val += pow ((e-par[0])/err_e,2);
+  return val;
+}
+
+int main(){
+
+  TApplication app ("app",0,NULL);
+  unsigned int n = 100;
+  double *x = new double[n];
+  double *y = new double[n];
+  double *a = new double[n];
+  double *b = new double[n];
+  double *l = new double[n];
+  double *m = new double[n];
+
+
+  ROOT::Math::Minimizer* min = ROOT::Math::Factory::CreateMinimizer("Minuit2","");
+  min->SetPrintLevel(1);
+  min->SetErrorDef(1);
+  ROOT::Math::Functor f(&chi2,3);
+  min->SetFunction(f);
+  min->SetVariable(0,"e",1.6,0.01);
+  min->SetVariable(1,"h",6.23,0.01);
+  min->SetVariable(2,"k",1.38,0.01);
+  min->Minimize();
+  min->Contour(0,1,n,x,y); //contour per e ed h
+  min->SetErrorDef(1);
+  min->Contour(1,2,n,a,b); //contour per h e k
+  min->SetErrorDef(1);
+  min->Contour(0,2,n,l,m); //contour per e , k
+  min->SetErrorDef(1);
+  
+  
+  const double *params = min -> X(); //parametri minimizzati
+  const double *eparams = min -> Errors(); //errori su parametri minimizzati
+
+  double ee = params[0];
+  double h = params[1];
+  double k = params[2];
+  double err_ee = eparams[0];
+  double err_h = eparams[1];
+  double err_k = eparams[2];
+
+  TCanvas c1;
+  TGraph* gr1 = new TGraph(100,x,y);  //grafico con array x,y 100 punti
+  gr1->SetPoint(100,1.602,6.626);  //valore vero
+  gr1->SetPoint(101,ee,h);   //valore sperimentale
+  gr1->SetMarkerStyle(20);
+  gr1->Draw("AP");
+  TCanvas c2;
+  TGraph* gr2 = new TGraph(100,a,b);
+  gr2->SetPoint(100,6.626,1.380);
+  gr2->SetPoint(101,h,k);
+  gr2->SetMarkerStyle(20);
+  gr2->Draw("AP");
+  TCanvas c3;
+  TGraph* gr3 = new TGraph(100,l,m);
+  gr3->SetPoint(100,1.602,1.380);
+  gr3->SetPoint(101,ee,k);
+  gr3->SetMarkerStyle(20);
+  gr3->Draw("AP");
+  
+  app.Run(true);
+  
+  cout << "carica elettrone" << " " << ee << " +- " << err_ee << endl;
+  cout << "costante Planck" << " " << h << "+-" << err_h << endl;
+  cout << "costante Stefan-Boltzmann" << " " << k << "+-" << err_k << endl;
+  
+  
+}

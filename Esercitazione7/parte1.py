@@ -1,0 +1,59 @@
+from ROOT import *
+from math import *
+import numpy as np
+from iminuit import Minuit
+from scipy import stats
+
+
+
+E = ([])
+h = TH1D("h","",50,0,14)
+N=40
+for data in open("Millikan.dat",'r'):
+    if len(E)<N:
+        E.append(float(data))
+        D,pvalue =  stats.kstest(E,'uniform',args=(0,5.5))
+        print "D = %f" %(D)
+        print "pvalue =  %f" %(pvalue)
+        
+        if pvalue >0.01:
+            print "Valore  accettato"
+        else:
+            print "Valore rigettato"
+        print (len(E))
+    h.Fill(float(data))
+    
+#UnbinnedFit    
+tree = TTree()
+tree.ReadFile("Millikan.dat","t")
+f = TF1("f","[4]*([0]*TMath::Gaus(x,[1],[2],1)+[3]*TMath::Gaus(x,2*[1],[2],1)+(1-[0]-[3])*TMath::Gaus(x,3*[1],[2],1))",0,5.5)
+f.SetParameter(0,0.5) #ampiezza
+f.SetParameter(1,1.6) #valore medio
+f.SetParameter(2,0.5) #sigma
+f.SetParameter(3,0.5) 
+#f.FixParameter(4,1)  #ho una pdf (metodo unbinned)
+area = h.Integral(0,h.GetXaxis().FindBin(5.5))*h.GetBinWidth(1)
+f.SetParameter(4,area) #area istrogramma
+f.SetParName(0,"alpha")
+f.SetParName(2,"sigma")
+f.SetParName(1,"valore medio")
+f.SetParName(3,"beta")
+f.SetParName(4,"gamma")
+f.SetParLimits(0,0,1)
+f.SetParLimits(1,1.4,1.7)
+f.SetParLimits(2,0.2,0.7)
+f.SetParLimits(3,0,1)
+
+c1 = TCanvas()
+tree.UnbinnedFit("f","t","t<5.5")
+h.Draw()
+f.Draw("SAME")
+h.Fit("f")
+
+gPad.Modified()
+gPad.Updated()
+gApplication.Run(True)
+
+
+
+

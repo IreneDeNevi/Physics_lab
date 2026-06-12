@@ -1,0 +1,229 @@
+#include <iostream>
+#include <fstream>
+#include <cmath>
+#include <TH1D.h>
+#include <TF1.h>
+#include <TH2D.h>
+#include <TCanvas.h>
+#include <TRandom3.h>
+#include <TApplication.h>
+#include <vector>
+#include <TGraphErrors.h>
+
+using namespace std;
+//FUNZIONI
+
+//Uso le referenze e una void per farmi ritornare piu di un valore
+
+void GetVsuIVperI(double V, double I, double &VsuI, double &VperI){
+  
+  VsuI=V/I;
+  VperI=V*I;
+  
+}
+
+double GetT(double Tamb, double Ramb, double v, double i, double Gamma){
+  
+   double T = (Tamb)*pow(((v/i)/Ramb),Gamma);
+   return T;
+  
+}
+
+
+int main (){
+
+  fstream ifile;
+  ifile.open(".dat");
+  double tmp1,tmp2,tmp3;
+  vector<double> V,I,eI;
+  
+  while(ifile >> tmp1 >> tmp2>>tmp3){
+    V.push_back(tmp1);
+    I.push_back(tmp2);
+    eI.push_back(tmp3);
+  }
+
+  
+  TRandom3 rnd=TRandom3();
+  rnd.SetSeed(1234567890);
+  TApplication app("app", 0 , NULL);
+  TH2D grVI("grVI","",110,0,0,110,0,0);
+  //TH1D grV ("grV","",110,0,0);
+  //TH1D grI ("grI","",110,0,0);  
+  TH2D gr1("gr1","",110,0,0,110,0,0);
+
+  double ev  = 0.002/sqrt(3);
+  vector<double> Ej;
+
+//FATTORE DI CORRELAZIONE DI V/I & V*I
+  for(int i=0;i<V.size();i++){
+      for(int k=0;k<1000;k++){
+	double v   = V[i];
+	double j   = I[i];
+	double ej  = eI[i]/sqrt(3);
+	Ej.push_back(ej);
+	double Vsimulated  = rnd.Gaus(v,ev);
+	double Isimulated  = rnd.Gaus(j,ej);
+	double VsuI,VperI;
+	GetVsuIVperI(Vsimulated,Isimulated,VsuI,VperI);
+	grVI.Fill(VsuI,VperI);
+	//rV.Fill(VsuI);
+	//grI.Fill(VperI);
+	gr1.Fill(Vsimulated, Isimulated);
+      }
+  }
+  
+  //TCanvas c1;
+  //grVI.Draw("");
+  //gr1.Draw("");
+  // app.Run(true);
+  
+  double rho    = grVI.GetCorrelationFactor();
+
+  /*
+  double VsuImu = grV.GetMean();
+  double VsuIsigma =grV.GetRMS();
+  
+  double VperImu = grI.GetMean();
+  double VperIsigma =grI.GetRMS();
+  */
+
+  //ERRORI CON METODO DI VARIAZIONE DEI PARAMETRI
+
+  vector<double> ErrVsuI, ErrVperI;
+  
+  for(int i=0;i<V.size();i++){
+  
+  double VsuI0,VperI0;
+  GetVsuIVperI(V[i],I[i],VsuI0,VperI0);
+
+  double VsuI1,VperI1;
+  GetVsuIVperI(V[i]+ev,I[i],VsuI1,VperI1);
+  
+
+  double VsuI2,VperI2;
+  GetVsuIVperI(V[i],I[i]+Ej[i],VsuI2,VperI2);
+
+  double errVsuI = sqrt(pow(VsuI1-VsuI0,2)+pow(VsuI2-VsuI0,2)+2*rho*(VsuI1-VsuI0)*(VsuI2-VsuI0));
+  
+  double errVperI= sqrt(pow(VperI1-VperI0,2)+pow(VperI2-VperI0,2)+2*rho*(VperI1-VperI0)*(VperI2-VperI0));
+
+  ErrVsuI.push_back(errVsuI);
+  ErrVperI.push_back(errVperI);
+    
+ 
+
+  }
+
+  //FACCIO IL FIT CON GLI ERRORI APPENA TROVATI
+  
+  TGraphErrors gr;
+
+  for(int i=0;i<V.size();i++){
+    gr.SetPoint(i,V[i]/I[i],V[i]*I[i]);
+    gr.SetPointError(i,ErrVsuI[i],ErrVperI[i]);
+  }
+
+  TF1 f("f","[0]*pow(x,4*[1])", 0, 1 );
+  //parametro 0 è alpha
+  //parametro 1 è gamma
+					
+  
+  f.SetParameter(0,1e-10);
+  f.SetParameter(1,1);
+  
+  //gr.Draw("AP");
+  gr.Fit("f");
+
+  double Gamma = f.GetParameter(1);
+  double ErrGamma = f.GetParError(1);
+
+  cout <<"Gamma = "<< Gamma<<" +/- "<< ErrGamma<< endl;
+
+  
+  //CALCOLIAMO T CON IL SUO ERRORE
+  double Tamb    = 23.6+273.15;  //in Kelvin
+  double Ramb    = 26.960;
+  double ErrTamb = 0.4;
+  double ErrRamb = 0.003*Ramb;  //da manuale Tektronix
+  fstream infile("out.dat");
+  double v,i,erri,Vfd,eVfd,T1,ErrT1,V1,eV1,rho2,rho3;
+  double errv    = 0.002;
+  int j=0;
+  TGraphErrors grT;
+  TH2D gr3("gr3","",110,0,0,110,0,0);
+  TH2D gr4("gr4","",110,0,0,110,0,0);
+
+  while (infile >> v >>  i >> erri >> Vfd >> eVfd){
+    double T          = GetT(Tamb,Ramb,v,i,Gamma);
+  
+  //CALCOLO CORRELAZIONE TRA GAMMA & V/I
+    if(j==0){
+      for(int k=0;k<1000;k++){
+	double Vsimulated  = rnd.Gaus(v,errv);
+	double Isimulated  = rnd.Gaus(i,erri);
+	double Gammasimulated  = rnd.Gaus(Gamma,ErrGamma);
+	gr3.Fill(Vsimulated,Gammasimulated); 
+	gr4.Fill(Isimulated,Gammasimulated);
+      }
+      rho2 = gr3.GetCorrelationFactor();
+      rho3 = gr4.GetCorrelationFactor();
+      
+    }
+    //CALCOLO L'ERRORE SU T
+    double TTamb  = GetT(Tamb+ErrTamb/sqrt(3),Ramb,v,i,Gamma);
+    double TRamb  = GetT(Tamb,Ramb+ErrRamb/sqrt(3),v,i,Gamma);
+    double Tv     = GetT(Tamb,Ramb,v+errv/sqrt(3),i,Gamma);
+    double Ti     = GetT(Tamb,Ramb,v,i+erri/sqrt(3),Gamma);
+    double TGamma = GetT(Tamb,Ramb,v,i,Gamma+ErrGamma);
+    
+    double ErrT   =sqrt(pow(T-TTamb,2)+pow(T-TRamb,2)+pow(T-Tv,2)+pow(T-Ti,2)+pow(T-TGamma,2)+2*rho2*(T-TGamma)*(T-Tv)+2*rho3*(T-TGamma)*(T-Ti));
+
+    //FACCIO IL GRAFICO CON T
+    if(j==0){
+      T1=T;
+      ErrT1=ErrT;
+      V1=Vfd;
+      eV1=eVfd;
+    }
+    
+    else{
+      grT.SetPoint(j-1,(1./T1-1./T),log(Vfd/V1));
+      double ex = sqrt(pow(ErrT1/T1,2)+pow(ErrT/T,2))*(1./T1-1./T);
+      double ey = sqrt(pow(((1/(Vfd/V1))*(1/V1)*eVfd),2)+pow((1/(Vfd/V1))*Vfd*(1/pow(V1,2))*eV1,2));
+      grT.SetPointError(j-1,ex,ey);
+    }
+    
+    j++;
+   
+  }
+  TF1 fT("fT","[0]*x+[1]", 0, 1 );
+  
+  fT.SetParameter(0,2e4);   //  h/k
+  fT.SetParameter(1,0);     
+    
+  grT.Draw("AP");
+  grT.Fit("fT");
+
+  grT.SetTitle("h/k");
+  grT.GetXaxis()->SetTitle("1/T1-1/T");   
+  grT.GetYaxis()->SetTitle("log(Vfd/V1)");   
+   app.Run(true);
+  //gr3.Draw("");
+  //gr4.Draw("");
+
+  double c            = 2.99e8;
+  double Lambda       = 635e-9;
+  double ErrL         = 5e-9;
+  double nu           = c/Lambda;
+  double Errnu        = ErrL/Lambda*nu;
+  double hpernusuk    = fT.GetParameter(0);
+  double Errhpernusuk = fT.GetParError(0);
+  double hsuk         = hpernusuk/nu;
+  double Errhsuk      = sqrt(pow(Errhpernusuk/hpernusuk,2)+pow(Errnu/nu,2))*hsuk;
+  cout << "h/k vale: (" << hsuk << " +/- " << Errhsuk << ") K*s" << endl;  //K*s = kelvin per secondi
+
+  
+  app.Run(true);
+  
+}
