@@ -1,0 +1,11 @@
+# Core scientific stack used by the Python exercises
+numpy>=1.24
+scipy>=1.10
+matplotlib>=3.7
+iminuit>=2.24
+
+# NOTE:
+# Most scripts also use PyROOT (import ROOT), which is normally installed via
+# CERN ROOT distributions or conda-forge, not via pip.
+# Example (conda):
+#   conda install -c conda-forge root

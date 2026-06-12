@@ -1,0 +1,11 @@
+name: laboratorio3
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - numpy>=1.24
+  - scipy>=1.10
+  - matplotlib>=3.7
+  - iminuit>=2.24
+  - root
+  - pip

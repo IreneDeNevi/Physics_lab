@@ -1,0 +1,33 @@
+from   ROOT    import *
+from   numpy   import *
+
+i = 0
+gr = TGraphErrors()
+
+for line in open("Termo.dat"):
+    t  = line.split()
+    if i > 1000:
+        break
+
+    if len(t)!= 2 :
+        continue
+    a = float(t[0])
+    b = float(t[1])
+    gr.SetPoint(i,a,b)
+  #  gr.SetPointError(i,c,d)
+    i = i + 1 
+    
+print (i) 
+print ("Il massimo vale : 0.841 per il tempo : 23.339 ")
+
+gr.Draw("AP")
+
+f = TF1("f","  ",0,10)
+f.SetParameter(0,0)
+f.SetParameter(1,0)
+
+#gr.Fit("f")
+
+gApplication.Run(True)
+
+

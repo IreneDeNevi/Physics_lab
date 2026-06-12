@@ -1,0 +1,77 @@
+#include <cmath>
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <TCanvas.h>
+#include <TGraphErrors.h>
+#include <TF1.h>
+#include <TH1D.h>
+#include <TH2D.h>
+#include <TGraph.h>
+#include <TMath.h>
+#include <TMinuit.h>
+#include <TApplication.h>
+#include <Math/Minimizer.h>
+#include <Math/Functor.h>
+#include <Math/Factory.h>
+#include <TRandom3.h>
+
+using namespace std;
+
+namespace data{
+  vector<double> w;
+  vector<double> v;
+}
+
+int main(){
+  
+  TApplication app("app",0,NULL);
+  ifstream ifile("dati_S.dat");
+  TGraph g;
+  double x,y,y1;
+  
+
+  int i=0;
+  while(ifile>>x>>y){
+    data::v.push_back(x);
+    data::w.push_back(y);
+
+    y1 = pow(10,(y/20));
+     if (x>5000){
+    g.SetPoint(i,x,y1);
+    i++;
+      }
+  }
+  TCanvas c0;
+  g.Draw("AP*");
+  double media = g.GetMean(2);
+  double errore = g.GetRMS(2);
+  
+  TF1 *f = new TF1("f","(4*[0]*[1]*[2]*[3])+([4]*[4])");
+  // TF1 *f = new TF1("f","((4*[0]*[1]*[2]*[3])+([4]*[4])+([5]*[2])^2)"); //V_i^2 = 4kTRB_n + V^2 + I^2 R^2
+  f->GetParameter(0);
+  f->SetParName(0,"costante di Boltzmann");
+  f->SetParameter(1,290);
+  f->SetParError(1,0.001);
+  f->SetParName(1,"Temperatura");
+  f->SetParameter(2,55390);
+  f->SetParError(2,0.001);
+  f->SetParName(2,"R");
+  f->FixParameter(3,1000);
+  f->SetParName(3,"Frequenza");
+  f->SetParameter(4,18*10^-3);
+  f->SetParError(4,10^-3);
+  f->SetParName(4,"Voltaggio");
+  f->SetParameter(5,2*10^-4);
+  f->SetParName(5,"Corrente");
+  f->SetParError(5,10^-5);
+  
+  g.Fit("f","S");
+  
+
+  cout<<"Media = " <<media <<endl;
+  cout<<"Errore =" <<errore <<endl; 
+  
+  app.Run(true);
+  return 0;
+}
